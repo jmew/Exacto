@@ -63,7 +63,10 @@ def removeBackground(image_file, out_folder):
 	cv2.imwrite(os.path.join(out_folder, os.path.basename(image_file)), output) 
 
 def main(in_folder, out_folder):
-	images = glob.glob('%s/*.jpg' % in_folder)
+	file_types = ['*.jpg', '*.jpeg', '*.png']
+	images = []
+	for file_type in file_types:
+		images.extend(glob.glob('%s/%s' % (in_folder, file_type)))
 	p = Pool(processes=16)
 	p.map(partial(removeBackground, out_folder=out_folder), images)
 
@@ -79,4 +82,3 @@ if __name__ == '__main__':
 		print "2. Output folder name"
 		exit()
 	main(in_folder, out_folder)
-	
