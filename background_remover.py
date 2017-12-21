@@ -30,12 +30,12 @@ def removeBackground(image_file, out_folder):
 	high = ret
 	low = high * 0.5
 
-	#-- Edge detection -------------------------------------------------------------------
+	# Edge detection
 	edges = cv2.Canny(gray, low, high)
 	edges = cv2.dilate(edges, None)
 	edges = cv2.erode(edges, None)
 
-	#-- Find contours in edges, sort by area ---------------------------------------------
+	# Find all contours and get the one with the biggest area
 	_, contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 	max_contour = sorted(contours, key=lambda c: cv2.contourArea(c), reverse=True)[0]
 	x, y, w, h = cv2.boundingRect(max_contour)
@@ -43,28 +43,29 @@ def removeBackground(image_file, out_folder):
 	x2 = x + w if abs(width - (x + w)) > 5 else (x + w) - 5
 	y1 = y if y - 0 > 5 else 5
 	y2 = y + h if abs(height - (y + h)) > 5 else (y + h) - 5
+	# Create bounding box based on the largest contour of the image
 	rect = (x1, y1, x2, y2)
 
 	mask = np.zeros(img.shape[:2], dtype=np.uint8)
 
+	# Dummy placeholders
 	bgdmodel = np.zeros((1,65),np.float64)
 	fgdmodel = np.zeros((1,65),np.float64)
 
-	# for x in xrange(10):
-	cv2.grabCut(img,mask,rect,bgdmodel,fgdmodel,1000,cv2.GC_INIT_WITH_RECT)
-	cv2.grabCut(img,mask,rect,bgdmodel,fgdmodel,1000,cv2.GC_INIT_WITH_MASK)
+	# Iteratively extract foreground object from background
+	cv2.grabCut(img,mask,rect,bgdmodel,fgdmodel,25,cv2.GC_INIT_WITH_RECT)
+	cv2.grabCut(img,mask,rect,bgdmodel,fgdmodel,25,cv2.GC_INIT_WITH_MASK)
 	mask2 = np.where((mask==1) + (mask==3),255,0).astype('uint8')
 	output = cv2.bitwise_and(img,img,mask=mask2)
 
-	#Convert black background to white
+	# Convert black background to white
 	output[np.where((output == [0,0,0]).all(axis = 2))] =[255,255,255]
 	cv2.imwrite(os.path.join(out_folder, os.path.basename(image_file)), output) 
 
 def main(in_folder, out_folder):
 	images = glob.glob('%s/*.jpg' % in_folder)
-	p = Pool(processes=32)
+	p = Pool(processes=16)
 	p.map(partial(removeBackground, out_folder=out_folder), images)
-	# removeBackground(images[0], out_folder)
 
 if __name__ == '__main__':
 	try:
@@ -78,3 +79,4 @@ if __name__ == '__main__':
 		print "2. Output folder name"
 		exit()
 	main(in_folder, out_folder)
+	
