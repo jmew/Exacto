@@ -10,7 +10,7 @@ from PIL import Image, ImageChops
 def removeBackground(image_file, out_folder):
 	img = cv2.imread(image_file)
 
-	# Crop out white borders from image
+	# Crop out white borders from image so the edge detection algorithm doesnt detect the border as an edge
 	im = Image.fromarray(img)
 	bg = Image.new(im.mode, im.size, (255, 255, 255))
 	diff = ImageChops.difference(im, bg)
@@ -22,10 +22,10 @@ def removeBackground(image_file, out_folder):
 
 	height, width, _ = img.shape
 
-	# Get bounding box
 	gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 	gray = cv2.GaussianBlur(gray, (5, 5), 0)
 
+	# Calculate otsu threshold for edge detection
 	ret, threshed_img = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
 	high = ret
 	low = high * 0.5
@@ -39,10 +39,13 @@ def removeBackground(image_file, out_folder):
 	_, contours, _ = cv2.findContours(edges, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
 	max_contour = sorted(contours, key=lambda c: cv2.contourArea(c), reverse=True)[0]
 	x, y, w, h = cv2.boundingRect(max_contour)
+
+	# Add a 5px buffer to bounding box
 	x1 = x if x - 0 > 5 else 5
 	x2 = x + w if abs(width - (x + w)) > 5 else (x + w) - 5
 	y1 = y if y - 0 > 5 else 5
 	y2 = y + h if abs(height - (y + h)) > 5 else (y + h) - 5
+
 	# Create bounding box based on the largest contour of the image
 	rect = (x1, y1, x2, y2)
 
@@ -53,8 +56,10 @@ def removeBackground(image_file, out_folder):
 	fgdmodel = np.zeros((1,65),np.float64)
 
 	# Iteratively extract foreground object from background
-	cv2.grabCut(img,mask,rect,bgdmodel,fgdmodel,25,cv2.GC_INIT_WITH_RECT)
-	cv2.grabCut(img,mask,rect,bgdmodel,fgdmodel,25,cv2.GC_INIT_WITH_MASK)
+	cv2.grabCut(img,mask,rect,bgdmodel,fgdmodel,10,cv2.GC_INIT_WITH_RECT)
+	cv2.grabCut(img,mask,rect,bgdmodel,fgdmodel,10,cv2.GC_INIT_WITH_MASK)
+
+	# Remove background from image
 	mask2 = np.where((mask==1) + (mask==3),255,0).astype('uint8')
 	output = cv2.bitwise_and(img,img,mask=mask2)
 
